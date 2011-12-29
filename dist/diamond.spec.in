@@ -1,7 +1,8 @@
 #
 # Spec file for diamond
-#i
+#
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
+%{!?pyver: %define pyver %(%{__python} -c "import sys ; print sys.version[:3]")}
 %define _topdir @topdir@
 %define diamond_site_dir %{python_sitelib}/diamond
 %define diamond_conf_dir @diamond-conf-dir@ 
@@ -18,9 +19,13 @@ Group: Brightcove/Syseng
 Source: diamond-%{version}.tar.gz
 BuildRoot: %{_topdir}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
+Requires(pre): /usr/sbin/useradd
+Requires(post): chkconfig
+Requires(preun): /usr/bin/userdel
+Requires(preun): chkconfig
 Requires: python-configobj
-Requires: pyasn1
-Requires: pysnmp 
+Requires: python-pyasn1
+Requires: python-pysnmp 
 
 %description
 Diamond is a daemon and toolset for gather system statistics and publishing them to graphite.
@@ -46,9 +51,6 @@ install -m 644 dist/diamond.cfg %{buildroot}%{diamond_conf_dir}
 install -m 755 dist/diamond.init %{buildroot}%{_initrddir}/diamond
 
 %pre
-if [ -x /etc/init.d/diamond ]; then
-    /etc/init.d/diamond stop
-fi
 # Look for user
 /usr/bin/getent passwd @diamond-user@ > /dev/null; HASUSER=$?;
 if [ ${HASUSER} -ne 0 ]; then
@@ -57,7 +59,7 @@ fi
 
 %post
 /sbin/chkconfig --add diamond
-/etc/init.d/diamond start 
+/etc/init.d/diamond condrestart
 
 %preun
 # Will only match if the command passed in was delete/erase/remove
@@ -76,12 +78,14 @@ if [ "$1" == "0" ]; then
     fi 
 fi
 
+
 %files
 %defattr(-, root, root, 0755)
 %{diamond_site_dir}
 %{diamond_conf_dir}
 %attr(755, @diamond-user@, @diamond-group@) %{diamond_lib_dir}
 %attr(755, @diamond-user@, @diamond-group@) %{diamond_log_dir}
+%{python_sitelib}/%{name}-%{version}_%{release}-py%{pyver}.egg-info
 %{diamond_data_dir}
 %{_initrddir}
 
